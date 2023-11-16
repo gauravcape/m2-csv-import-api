@@ -1,4 +1,8 @@
-<b>OverView :</b>
+<b>Installation :</b>
+composer require gauravcape/m2-csv-import-api
+<b>Note :</b> tested with composer version 2 for dowloading through composer, otherwise you can dowload it directly
+
+<br><b>OverView :</b>
 
 This module implement WebAPI for product import via api through Magento CSV
 
