@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Store/etc/config.xsd">
+    <default>
+        <gauravcape_csvimportapi_config>
+            <general>
+                <enable>1</enable>
+                <csvimport_file_size>2</csvimport_file_size>
+                <csvimport_logs_table_enable>1</csvimport_logs_table_enable>
+                <csvimport_logs_email_enable>0</csvimport_logs_email_enable>
+            </general>
+        </gauravcape_csvimportapi_config>
+    </default>
+</config>

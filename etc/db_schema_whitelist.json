@@ -1,0 +1,14 @@
+{
+    "product_apicsvimport_log": {
+        "column": {
+            "entity_id": true,
+            "import_type": true,
+            "csv_file_path": true,
+            "csv_comment": true,
+            "created_at": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    }
+}

@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+
+	<!-- Start Product Api Csv import Log Table -->
+	<table name="product_apicsvimport_log" resource="default" engine="innodb" comment="Product Api Csv import Log Table">
+
+		<column xsi:type="bigint" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity Id"/>	
+		<column name="import_type" nullable="true" xsi:type="varchar" comment="Import Type" length="255" />	
+		<column name="csv_file_path" nullable="true" xsi:type="varchar" comment="Csv File Path" length="255" />
+		<column name="csv_comment" nullable="true" xsi:type="varchar" comment="Csv File Path" length="255" />
+		<column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created Time"/>	
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="entity_id"/>
+        </constraint>
+
+	</table>
+    
+	<!-- End Product Api Csv import Log Table -->
+	
+</schema>

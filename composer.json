@@ -1,0 +1,24 @@
+{
+  "name": "gauravcape/m2-csv-import-api",
+  "description": "Import api via csv for magento 2",
+  "type": "magento2-module",
+  "version": "1.0.0",
+  "license": [
+    "MIT"
+  ],
+  "minimum-stability": "dev",
+  "authors":[
+    {
+      "name": "Gaurav",
+      "role": "magento 2 Dev"
+    }
+  ],
+  "autoload": {
+    "files": [
+      "registration.php"
+    ],
+    "psr-4": {
+      "GauravCape\\CsvImportApi\\": ""
+    }    
+  }
+}
