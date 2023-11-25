@@ -1,36 +1,120 @@
 <?php
+/**
+ * @category GauravCape
+ * @author Gaurav
+ * @copyright Copyright (c) 2023 Gaurav
+ * @package GauravCape_CsvImportApi
+ */
 
 declare(strict_types=1);
 
 namespace GauravCape\CsvImportApi\Model;
 
+use Magento\ImportExport\Model\ImportFactory;
+use Magento\ImportExport\Model\Import\Source\CsvFactory;
+use Magento\Framework\Filesystem\Directory\ReadFactory;
+use Magento\Framework\Filesystem\DirectoryList;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use GauravCape\CsvImportApi\Model\CsvImportApiLog;
+use Magento\Framework\Webapi\Rest\Response;
+use Magento\Framework\Webapi\Rest\Request;
+use Magento\Framework\Filesystem\Io\File;
+use Magento\Framework\Filesystem\DriverInterface;
+use Magento\Framework\HTTP\Client\Curl;
+
 class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProductImportManagementInterface
 {
-    const XML_Is_Module_Enabled = 'gauravcape_csvimportapi_config/general/enable';
-    const XML_Is_Table_log_Enabled = 'gauravcape_csvimportapi_config/general/csvimport_logs_table_enable';
-    const XML_Is_Email_Log_Enabled = 'gauravcape_csvimportapi_config/general/csvimport_logs_email_enable';
-    const XML_Csvimport_File_Size = 'gauravcape_csvimportapi_config/general/csvimport_file_size';
-    const XML_Csv_Sender_Emails = 'gauravcape_csvimportapi_config/general/csvimport_logs_sender_emails';
-    const XML_Csv_Report_Emails = 'gauravcape_csvimportapi_config/general/csvimport_logs_on_receive_emails';
+    public const IS_MODULE_ENABLED = 'gauravcape_csvimportapi_config/general/enable';
+    public const IS_TABLE_LOG_ENABLED = 'gauravcape_csvimportapi_config/general/csvimport_logs_table_enable';
+   
+    public const CSVIMPORT_FILE_SIZE = 'gauravcape_csvimportapi_config/general/csvimport_file_size';
 
+    public const IS_EMAIL_LOG_ENABLED = 'gauravcape_csvimportapi_config/general/csvimport_logs_email_enable';
+    public const CSV_SENDER_EMAILS = 'gauravcape_csvimportapi_config/general/csvimport_logs_sender_emails';
+    public const CSV_REPORT_EMAILS = 'gauravcape_csvimportapi_config/general/csvimport_logs_on_receive_emails';
+
+    /**
+     * @var ImportFactory
+     */
     protected $importFactory;
+
+    /**
+     * @var CsvFactory
+     */
     protected $csvFactory;
+
+    /**
+     * @var ReadFactory
+     */
     protected $readFactory;
+
+    /**
+     * @var DirectoryList
+     */
     protected $dir;
+
+    /**
+     * @var ScopeConfigInterface
+     */
     protected $scopeConfig;
+
+    /**
+     * @var CsvImportApiLog
+     */
     protected $csvImportApiLog;
+
+    /**
+     * @var Response
+     */
     protected $apiResponse;
+
+    /**
+     * @var Request
+     */
     protected $apiRequest;
 
+     /**
+      * @var File
+      */
+    protected $ioFile;
+
+    /**
+     * @var DriverInterface
+     */
+    protected $driver;
+
+    /**
+     * @var Curl
+     */
+    protected $curl;
+
+    /**
+     * Initialize constructor For Importing Products by API
+     *
+     * @param ImportFactory $importFactory
+     * @param CsvFactory $csvFactory
+     * @param ReadFactory $readFactory
+     * @param DirectoryList $dir
+     * @param ScopeConfigInterface $scopeConfig
+     * @param CsvImportApiLog $csvImportApiLog
+     * @param Response $apiResponse
+     * @param Request $apiRequest
+     * @param File $ioFile
+     * @param DriverInterface $driver
+     * @param Curl $curl
+     */
     public function __construct(
-        \Magento\ImportExport\Model\ImportFactory $importFactory,
-        \Magento\ImportExport\Model\Import\Source\CsvFactory $csvFactory,
-        \Magento\Framework\Filesystem\Directory\ReadFactory $readFactory,
-        \Magento\Framework\Filesystem\DirectoryList $dir,
-        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
-        \GauravCape\CsvImportApi\Model\CsvImportApiLog $csvImportApiLog,
-        \Magento\Framework\Webapi\Rest\Response $apiResponse,
-        \Magento\Framework\Webapi\Rest\Request $apiRequest
+        ImportFactory $importFactory,
+        CsvFactory $csvFactory,
+        ReadFactory $readFactory,
+        DirectoryList $dir,
+        ScopeConfigInterface $scopeConfig,
+        CsvImportApiLog $csvImportApiLog,
+        Response $apiResponse,
+        Request $apiRequest,
+        File $ioFile,
+        DriverInterface $driver,
+        Curl $curl
     ) {
         $this->importFactory = $importFactory;
         $this->csvFactory = $csvFactory;
@@ -40,22 +124,44 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
         $this->csvImportApiLog = $csvImportApiLog;
         $this->apiResponse = $apiResponse;
         $this->apiRequest = $apiRequest;
+        $this->ioFile = $ioFile;
+        $this->driver = $driver;
+        $this->curl = $curl;
     }
 
-    public function getPostParams(){
-		return $this->apiRequest->getBodyParams();
+    /**
+     * Get and return the request body parameters from the API request.
+     *
+     * @return array The array of request body parameters.
+     */
+    public function getPostParams()
+    {
+        return $this->apiRequest->getBodyParams();
     }
     
-    public function responseToJson($data){
+    /**
+     * Convert the provided data to JSON format and send it as a response.
+     *
+     * @param mixed $data The data to be converted to JSON and sent as a response.
+     * @return void
+     */
+    public function responseToJson($data)
+    {
         $this->apiResponse->setHeader('Content-Type', 'application/json', true)
-        ->setBody(json_encode($data))
-        ->sendResponse();
+                        ->setBody(json_encode($data))
+                        ->sendResponse();
     }
 
-    public function paramsValidation($bodyParams){
-
+    /**
+     * Validate the parameters received in the API request for CSV product import.
+     *
+     * @param array $bodyParams The array of parameters received in the API request body.
+     * @return bool True if the parameters are valid; false otherwise.
+     */
+    public function paramsValidation($bodyParams)
+    {
        // Check if 'csv_path_type' key is present in the array
-       if (!isset($bodyParams['csv_path_type'])) {
+        if (!isset($bodyParams['csv_path_type'])) {
             $data = [
                 'response' => 'error',
                 'message' => __("Missing 'csv_path_type' parameter.")
@@ -91,15 +197,20 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
         // Validate the URL if 'csv_path_type' is 'url'
         if ($csvPathType === 'url') {
             if (!filter_var($csvLocation, FILTER_VALIDATE_URL)) {
-                $data = ['response' => 'error', 'message' => __("Invalid URL format.")];
+                $data = [
+                    'response' => 'error',
+                    'message' => __("Invalid URL format.")
+                ];
                 $this->responseToJson($data);
                 return false;
             }
 
             // Additional validation for HTTP or HTTPS URL
-            $urlParts = parse_url($csvLocation);
-            if (!isset($urlParts['scheme']) || !in_array(strtolower($urlParts['scheme']), ['http', 'https'])) {
-                $data = ['response' => 'error', 'message' => __("URL must be an HTTP or HTTPS URL.")];
+            if (!preg_match('/^https?:/i', $csvLocation)) {
+                $data = [
+                    'response' => 'error',
+                    'message' => __("URL must be an HTTP or HTTPS URL.")
+                ];
                 $this->responseToJson($data);
                 return false;
             }
@@ -109,10 +220,19 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
         return true;
     }
 
-    public function postCsvProductImport(){
-        $isModuleEnabled = $this->scopeConfig->getValue(self::XML_Is_Module_Enabled);
-        if(!$isModuleEnabled){
-            $data = ['response' => 'Error','message'=>__("Import API Module is disabled. Please contact to store admin")];
+    /**
+     * Process the CSV product import based on the parameters received in the API request.
+     *
+     * @return bool True if the CSV import process is successful; false otherwise.
+     */
+    public function postCsvProductImport()
+    {
+        $isModuleEnabled = $this->scopeConfig->getValue(self::IS_MODULE_ENABLED);
+        if (!$isModuleEnabled) {
+            $data = [
+                'response' => 'Error',
+                'message'=>__("Import API Module is disabled. Please contact to store admin")
+            ];
             $this->responseToJson($data);
             return false;
         }
@@ -126,12 +246,17 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
         }
         // End validate payload
 
-        $isEmailLogEnabled = $this->scopeConfig->getValue(self::XML_Is_Email_Log_Enabled);
+        $isEmailLogEnabled = $this->scopeConfig->getValue(self::IS_EMAIL_LOG_ENABLED);
 
         // convert External Url to local Magento File path
         $importPath = $this->downloadCsvFile($bodyParams['csv_location']);
+
+        if (!is_string($importPath)) {
+            return false;
+        }
         
-        $importFile = pathinfo($importPath);
+        // $importFile = pathinfo($importPath);
+        $importFile = $this->ioFile->getPathInfo($importPath);
 
         $import = $this->importFactory->create();
         $import->setData([
@@ -159,8 +284,10 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
                 // Table Import Log
                 $this->saveCsvImportLog($importPath);
 
-                $data = ['response' => 'Error','message'=>__($error->getErrorMessage() . ' in row ' . $error->getRowNumber())];
-
+                $data = [
+                    'response' => 'Error',
+                    'message'=>__($error->getErrorMessage() . ' in row ' . $error->getRowNumber())
+                ];
                 $this->responseToJson($data);
                 return false;
             } else {
@@ -172,66 +299,103 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
                     // Table Import Log
                     $this->saveCsvImportLog($importPath);
 
-                    $data = ['response' => 'Success','message'=>__("Finished importing $importedProductsCount products from $importPath")];
+                    $data = [
+                        'response' => 'Success',
+                        'message' => __("Finished importing $importedProductsCount products from $importPath")
+                    ];
                     $this->responseToJson($data);
-                    return false;
+                    return true;
                 } else {
-                    $data = ['response' => 'Error','message'=>__("Failed to import products.")];
+                    $data = [
+                        'response' => 'Error',
+                        'message'=>__("Failed to import products.")
+                    ];
                     $this->responseToJson($data);
                     return false;
                 }
             }
         } catch (\Magento\Framework\Exception\LocalizedException $e) {
-            $data = ['response' => 'Errocr','message'=>__($e->getMessage())];
+            $data = [
+                'response' => 'Error',
+                'message'=>__($e->getMessage())
+            ];
             return $this->responseToJson($data);
         }
     }
 
-    protected function downloadCsvFile($csvURL){
+    /**
+     * Download the CSV file from the specified URL, perform checks, and save it locally.
+     *
+     * @param string $csvURL The URL of the CSV file to be downloaded.
+     * @return string|bool The local file path if the download and save are successful; false otherwise.
+     */
+    protected function downloadCsvFile($csvURL)
+    {
         try {
-            $fileSizeCheck = $this->scopeConfig->getValue(self::XML_Csvimport_File_Size);
+            $fileSizeCheck = $this->scopeConfig->getValue(self::CSVIMPORT_FILE_SIZE);
             $maxFileSize = $fileSizeCheck * 1024 * 1024;
-            $headers = get_headers($csvURL, 1);
-            $csvEncodeCheck = @file_get_contents($csvURL);
+
+            // getting header of Url
+            $this->curl->setOption(CURLOPT_URL, $csvURL);
+            $this->curl->get($csvURL);
+            $headers = $this->curl->getHeaders();
+
+            $csvEncodeCheck = $this->ioFile->read($csvURL);
 
             // Start handling CSV check
             if (isset($headers['Content-Type']) && $headers['Content-Type'] !== 'text/csv') {
-                $data = ['response' => 'Error','message'=>__("File is not Csv.")];
+                $data = [
+                    'response' => 'Error',
+                    'message'=>__("File is not Csv.")
+                ];
                 $this->responseToJson($data);
                 return false;
             }
 
             if (!mb_detect_encoding($csvEncodeCheck, 'UTF-8', true)) {
-                $data = ['response' => 'Error','message'=>__("CSV file is not in UTF-8 encoding.")];
+                $data = [
+                    'response' => 'Error',
+                    'message'=>__("CSV file is not in UTF-8 encoding.")
+                ];
                 $this->responseToJson($data);
                 return false;
             }
             
             if (isset($headers['Content-Length']) && $headers['Content-Length'] > $maxFileSize) {
-                $data = ['response' => 'Error','message'=>__("CSV file size exceeds the limit of 2MB.")];
+                $data = [
+                    'response' => 'Error',
+                    'message'=>__("CSV file size exceeds the limit of 2MB.")
+                ];
                 $this->responseToJson($data);
                 return false;
             }
-            // Start handling CSV check
+            // End handling CSV check
 
             $destinationFolder = $this->dir->getPath('pub').'/'.'api_import_csv/';
 
             // Create the destination folder with 777 permissions if it doesn't exist
-            if (!is_dir($destinationFolder)) {
-                if (!mkdir($destinationFolder, 0777, true)) {
-                    $data = ['response' => 'Error','message'=>__("Failed to create the destination folder, Contact Support.")];
+            if (!$this->driver->isDirectory($destinationFolder)) {
+                try {
+                    $this->driver->createDirectory($destinationFolder, 0777);
+                } catch (\Exception $e) {
+                    $data = [
+                        'response' => 'Error',
+                        'message' => __("Failed to create the destination folder, Contact Support.")
+                    ];
                     $this->responseToJson($data);
                     return false;
                 }
             }
 
             // Get the name from the CSV URL
-            $csvFileName = basename($csvURL);
+            $pathInfo = $this->ioFile->getPathInfo($csvURL);
+            $csvFileName = $pathInfo['basename'];
 
             // Check if a file with the same name already exists in the destination folder
             $localFilePath = $destinationFolder . $csvFileName;
+            
             $i = 1;
-            while (file_exists($localFilePath)) {
+            while ($this->ioFile->fileExists($localFilePath)) {
                 $timestamp = date('Y-m-d_H-i-s');
                 $csvFileName = $csvFileName . '_' . $timestamp . '_' . $i . '.' . 'csv';
                 $localFilePath = $destinationFolder . $csvFileName;
@@ -239,30 +403,43 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
             }
         
             // Download the CSV file and save it locally
-            $csvData = @file_get_contents($csvURL);
-            
-            if ($csvData === false) {
-                $data = ['response' => 'Error','message'=>__("Failed to download the CSV file from the URL.")];
+            try {
+                $csvData = $this->ioFile->read($csvURL);
+                $this->ioFile->write($localFilePath, $csvData, 0777);
+                return $localFilePath;
+            } catch (\Exception $e) {
+                $data = [
+                    'response' => 'Error',
+                    'message'=>__("Failed to download or save the CSV file.")
+                ];
                 $this->responseToJson($data);
                 return false;
             }
 
-            if (file_put_contents($localFilePath, $csvData) === false) {
-                $data = ['response' => 'Error','message'=>__("Failed to save the CSV file locally.")];
-                $this->responseToJson($data);
-                return false;
-            }
             return $localFilePath;
         } catch (\Exception $e) {
-            if($e->getMessage() == '')
-            $data = ['response' => 'Error','message'=>__($e->getMessage())];
+            if ($e->getMessage() == '') {
+                $data = [
+                    'response' => 'Error',
+                    'message'=>__($e->getMessage())
+                ];
+            }
             $this->responseToJson($data);
             return false;
         }
     }
 
-    protected function saveCsvImportLog($importPath, $comment = 'No issue'){
-        $isTableLogEnabled = $this->scopeConfig->getValue(self::XML_Is_Table_log_Enabled);
+    /**
+     * Save a log entry for the CSV import with the provided import path and comment.
+     *
+     * @param string $importPath The path of the CSV file being imported.
+     * @param string $comment : Additional information or comments related to the import.
+     *                          Defaults to 'No issue' if not provided.
+     * @return void
+     */
+    protected function saveCsvImportLog($importPath, $comment = 'No issue')
+    {
+        $isTableLogEnabled = $this->scopeConfig->getValue(self::IS_TABLE_LOG_ENABLED);
     
         if ($isTableLogEnabled) {
             $this->csvImportApiLog

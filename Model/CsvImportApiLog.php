@@ -1,4 +1,10 @@
 <?php
+/**
+ * @category GauravCape
+ * @author Gaurav
+ * @copyright Copyright (c) 2023 Gaurav
+ * @package GauravCape_CsvImportApi
+ */
 
 declare(strict_types=1);
 
@@ -8,6 +14,11 @@ use GauravCape\CsvImportApi\Model\ResourceModel\CsvImportApiLog as CsvImportApiL
 
 class CsvImportApiLog extends \Magento\Framework\Model\AbstractModel
 {
+    /**
+     * Initialize the CsvImportApiLog model
+     *
+     * @return void
+     */
     protected function _construct()
     {
         $this->_init(CsvImportApiLogResourceModel::class);
