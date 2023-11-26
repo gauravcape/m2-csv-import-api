@@ -21,6 +21,9 @@ use Magento\Framework\Webapi\Rest\Request;
 use Magento\Framework\Filesystem\Io\File;
 use Magento\Framework\Filesystem\DriverInterface;
 use Magento\Framework\HTTP\Client\Curl;
+use Magento\Framework\Mail\Template\TransportBuilder;
+use Magento\Framework\Translate\Inline\StateInterface;
+use Magento\Store\Model\StoreManagerInterface;
 
 class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProductImportManagementInterface
 {
@@ -89,6 +92,21 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
     protected $curl;
 
     /**
+     * @var TransportBuilder
+     */
+    protected $transportBuilder;
+
+    /**
+     * @var StateInterface
+     */
+    protected $inlineTranslation;
+
+    /**
+     * @var StoreManagerInterface
+     */
+    protected $storeManager;
+
+    /**
      * Initialize constructor For Importing Products by API
      *
      * @param ImportFactory $importFactory
@@ -102,6 +120,9 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
      * @param File $ioFile
      * @param DriverInterface $driver
      * @param Curl $curl
+     * @param TransportBuilder $transportBuilder
+     * @param StateInterface $inlineTranslation
+     * @param StoreManagerInterface $storeManager
      */
     public function __construct(
         ImportFactory $importFactory,
@@ -114,7 +135,10 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
         Request $apiRequest,
         File $ioFile,
         DriverInterface $driver,
-        Curl $curl
+        Curl $curl,
+        TransportBuilder $transportBuilder,
+        StateInterface $inlineTranslation,
+        StoreManagerInterface $storeManager
     ) {
         $this->importFactory = $importFactory;
         $this->csvFactory = $csvFactory;
@@ -127,97 +151,9 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
         $this->ioFile = $ioFile;
         $this->driver = $driver;
         $this->curl = $curl;
-    }
-
-    /**
-     * Get and return the request body parameters from the API request.
-     *
-     * @return array The array of request body parameters.
-     */
-    public function getPostParams()
-    {
-        return $this->apiRequest->getBodyParams();
-    }
-    
-    /**
-     * Convert the provided data to JSON format and send it as a response.
-     *
-     * @param mixed $data The data to be converted to JSON and sent as a response.
-     * @return void
-     */
-    public function responseToJson($data)
-    {
-        $this->apiResponse->setHeader('Content-Type', 'application/json', true)
-                        ->setBody(json_encode($data))
-                        ->sendResponse();
-    }
-
-    /**
-     * Validate the parameters received in the API request for CSV product import.
-     *
-     * @param array $bodyParams The array of parameters received in the API request body.
-     * @return bool True if the parameters are valid; false otherwise.
-     */
-    public function paramsValidation($bodyParams)
-    {
-       // Check if 'csv_path_type' key is present in the array
-        if (!isset($bodyParams['csv_path_type'])) {
-            $data = [
-                'response' => 'error',
-                'message' => __("Missing 'csv_path_type' parameter.")
-            ];
-            $this->responseToJson($data);
-            return false;
-        }
-
-        $csvPathType = $bodyParams['csv_path_type'];
-        
-        // Check if 'csv_path_type' has a valid value
-        if (!in_array($csvPathType, ['url', 'local'])) {
-            $data = [
-                'response' => 'error',
-                'message' => __("Invalid 'csv_path_type' value. Allowed values are 'url' or 'local'.")
-            ];
-            $this->responseToJson($data);
-            return false;
-        }
-
-        // Check separately for 'csv_location' key
-        if (!isset($bodyParams['csv_location'])) {
-            $data = [
-                'response' => 'error',
-                'message' => __("Missing 'csv_location' parameter.")
-            ];
-            $this->responseToJson($data);
-            return false;
-        }
-
-        $csvLocation = $bodyParams['csv_location'];
-
-        // Validate the URL if 'csv_path_type' is 'url'
-        if ($csvPathType === 'url') {
-            if (!filter_var($csvLocation, FILTER_VALIDATE_URL)) {
-                $data = [
-                    'response' => 'error',
-                    'message' => __("Invalid URL format.")
-                ];
-                $this->responseToJson($data);
-                return false;
-            }
-
-            // Additional validation for HTTP or HTTPS URL
-            if (!preg_match('/^https?:/i', $csvLocation)) {
-                $data = [
-                    'response' => 'error',
-                    'message' => __("URL must be an HTTP or HTTPS URL.")
-                ];
-                $this->responseToJson($data);
-                return false;
-            }
-        }
-
-        // If all validations pass, return true
-        return true;
+        $this->transportBuilder = $transportBuilder;
+        $this->inlineTranslation = $inlineTranslation;
+        $this->storeManager = $storeManager;
     }
 
     /**
@@ -245,8 +181,6 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
             return; // rest code will not proceed
         }
         // End validate payload
-
-        $isEmailLogEnabled = $this->scopeConfig->getValue(self::IS_EMAIL_LOG_ENABLED);
 
         // convert External Url to local Magento File path
         $importPath = $this->downloadCsvFile($bodyParams['csv_location']);
@@ -301,7 +235,7 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
 
                     $data = [
                         'response' => 'Success',
-                        'message' => __("Finished importing $importedProductsCount products from $importPath")
+                        'message' => "Finished importing $importedProductsCount products from $importPath"
                     ];
                     $this->responseToJson($data);
                     return true;
@@ -321,6 +255,84 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
             ];
             return $this->responseToJson($data);
         }
+    }
+
+    /**
+     * Get and return the request body parameters from the API request.
+     *
+     * @return array The array of request body parameters.
+     */
+    public function getPostParams()
+    {
+        return $this->apiRequest->getBodyParams();
+    }
+
+    /**
+     * Validate the parameters received in the API request for CSV product import.
+     *
+     * @param array $bodyParams The array of parameters received in the API request body.
+     * @return bool True if the parameters are valid; false otherwise.
+     */
+    public function paramsValidation($bodyParams)
+    {
+        // Check if 'csv_path_type' key is present in the array
+        if (!isset($bodyParams['csv_path_type'])) {
+            $data = [
+                'response' => 'error',
+                'message' => "Missing 'csv_path_type' parameter."
+            ];
+            $this->responseToJson($data);
+            return false;
+        }
+
+        $csvPathType = $bodyParams['csv_path_type'];
+        
+        // Check if 'csv_path_type' has a valid value
+        if (!in_array($csvPathType, ['url', 'local'])) {
+            $data = [
+                'response' => 'error',
+                'message' => "Invalid 'csv_path_type' value. Allowed values are 'url' or 'local'."
+            ];
+            $this->responseToJson($data);
+            return false;
+        }
+
+        // Check separately for 'csv_location' key
+        if (!isset($bodyParams['csv_location'])) {
+            $data = [
+                'response' => 'error',
+                'message' => "Missing 'csv_location' parameter."
+            ];
+            $this->responseToJson($data);
+            return false;
+        }
+
+        $csvLocation = $bodyParams['csv_location'];
+
+        // Validate the URL if 'csv_path_type' is 'url'
+        if ($csvPathType === 'url') {
+            if (!filter_var($csvLocation, FILTER_VALIDATE_URL)) {
+                $data = [
+                    'response' => 'error',
+                    'message' => "Invalid URL format."
+                ];
+                $this->responseToJson($data);
+                return false;
+            }
+
+            // Additional validation for HTTP or HTTPS URL
+            if (!preg_match('/^https?:/i', $csvLocation)) {
+                $data = [
+                    'response' => 'error',
+                    'message' => "URL must be an HTTP or HTTPS URL."
+                ];
+                $this->responseToJson($data);
+                return false;
+            }
+        }
+
+        // If all validations pass, return true
+        return true;
     }
 
     /**
@@ -380,7 +392,7 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
                 } catch (\Exception $e) {
                     $data = [
                         'response' => 'Error',
-                        'message' => __("Failed to create the destination folder, Contact Support.")
+                        'message' => "Failed to create the destination folder, Contact Support."
                     ];
                     $this->responseToJson($data);
                     return false;
@@ -449,6 +461,54 @@ class CsvProductImportManagement implements \GauravCape\CsvImportApi\Api\CsvProd
                     'csv_comment' => $comment,
                 ])
                 ->save();
+        }
+    }
+
+    /**
+     * Convert the provided data to JSON format and send it as a response.
+     *
+     * @param mixed $data The data to be converted to JSON and sent as a response.
+     * @return void
+     */
+    public function responseToJson($data)
+    {
+        $this->sendEmail($data['message']);
+
+        $this->apiResponse->setHeader('Content-Type', 'application/json', true)
+                        ->setBody(json_encode($data))
+                        ->sendResponse();
+    }
+
+    /**
+     * Send an email with the provided subject and body.
+     *
+     * @param string $subject The subject of the email.
+     * @param string $body The body of the email.
+     * @return void
+     */
+    protected function sendEmail($body)
+    {
+        $isEmailLogEnabled = $this->scopeConfig->getValue(self::IS_EMAIL_LOG_ENABLED);
+
+        if ($isEmailLogEnabled) {
+            $senderEmails = explode(',', $this->scopeConfig->getValue(self::CSV_SENDER_EMAILS));
+            $receiverEmails = explode(',', $this->scopeConfig->getValue(self::CSV_REPORT_EMAILS));
+
+            $transport = $this->transportBuilder
+                ->setTemplateIdentifier('csv_import_notification')
+                ->setTemplateOptions([
+                    'area' => \Magento\Framework\App\Area::AREA_FRONTEND,
+                    'store' => $this->storeManager->getStore()->getId(),
+                ])
+                ->setTemplateVars([
+                    'report' => $body,
+                ])
+                ->setFrom(['email' => $senderEmails[0], 'name' => 'CSV Import Data'])
+                ->addTo($receiverEmails)
+                ->getTransport();
+
+            $transport->sendMessage();
+            $this->inlineTranslation->resume();
         }
     }
 }
