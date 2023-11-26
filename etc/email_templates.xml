@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- 
+/**
+ * @category GauravCape
+ * @author Gaurav
+ * @copyright Copyright (c) 2023 Gaurav
+ * @package GauravCape_CsvImportApi
+ */ 
+-->
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Email:etc/email_templates.xsd">
+    <template id="csv_import_notification" label="CSV Import Notification" file="csv_import_notification.html" type="html" module="GauravCape_CsvImportApi" area="frontend"/>
+</config>
